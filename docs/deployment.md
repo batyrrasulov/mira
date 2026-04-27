@@ -1,53 +1,48 @@
-# Deployment Guide
+# Deployment
 
-## Local Development
-
-1. Create a virtual environment:
+## Local Run
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-```
-
-2. Install dependencies:
-
-```bash
 pip install -r requirements.txt
-```
-
-3. Configure environment:
-
-```bash
 cp configs/app.env.example configs/app.env
-```
-
-4. Run API:
-
-```bash
 bash scripts/run_local_api.sh
 ```
 
-5. Health check:
+## Minimum Environment
+
+- MIRA_HOST
+- MIRA_PORT
+- MIRA_MAX_INPUT_CHARS
+- MIRA_MAX_OUTPUT_TOKENS
+- MIRA_MIN_OUTPUT_TOKENS
+
+## Provider Mode Configuration
+
+Set these in configs/app.env:
+
+- MIRA_LLM_BASE_URL
+- MIRA_LLM_MODEL
+- MIRA_LLM_API_KEY (if needed)
+
+Optional:
+
+- MIRA_UPSTREAM_CHAT_ENDPOINT
+- MIRA_PROVIDER_TEMPERATURE
+- MIRA_FORCE_FALLBACK
+
+## Security Controls
+
+- Set MIRA_API_KEY to require Bearer auth on write endpoints.
+- Keep provider keys out of git and local shell history where possible.
+- Restrict network access to trusted clients only.
+
+## Health and Readiness
 
 ```bash
 curl -sS http://127.0.0.1:8080/health
+curl -sS http://127.0.0.1:8080/ready
 ```
 
-## Containerization (Suggested)
-
-A simple container can be built around uvicorn + src package.
-Use environment variables for runtime limits and model provider details.
-
-## LMS Integration Pattern
-
-- LMS tool/plug-in calls /v1/chat/completions.
-- Enforce strict_json_mode for deterministic response parsing.
-- Render fields such as learning_goal and guided_steps in UI.
-
-## Production Hardening Checklist
-
-- Add auth (gateway token or mTLS)
-- Add request ID tracing
-- Add structured logs and alert hooks
-- Add explicit rate limiting and abuse controls
-- Add provider fallback strategy
+Use readiness in orchestration checks before promoting traffic.

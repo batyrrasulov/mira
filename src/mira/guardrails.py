@@ -26,14 +26,16 @@ def _extract_text(value: Any) -> str:
 
 
 def _requested_tokens(payload: dict[str, Any]) -> int:
-    value = payload.get("max_tokens")
-    if value is None:
-        return 0
-    if isinstance(value, bool):
+    for key in ("max_completion_tokens", "max_tokens"):
+        value = payload.get(key)
+        if value is None:
+            continue
+        if isinstance(value, bool):
+            return -1
+        if isinstance(value, int):
+            return value
         return -1
-    if not isinstance(value, int):
-        return -1
-    return value
+    return 0
 
 
 def _chat_input_chars(payload: dict[str, Any]) -> int:
@@ -68,9 +70,9 @@ def validate_payload(
 
     tokens = _requested_tokens(payload)
     if tokens < 0:
-        errors.append("max_tokens must be an integer")
+        errors.append("max_tokens or max_completion_tokens must be an integer")
     elif tokens == 0:
-        errors.append("max_tokens is required")
+        errors.append("max_tokens or max_completion_tokens is required")
     else:
         if tokens < config.min_output_tokens:
             errors.append(

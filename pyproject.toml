@@ -5,10 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mira"
 version = "0.1.0"
-description = "Anonymous school LLM assistant scaffold for LMS integration"
+description = "Production-style learning assistant backend with OpenAI-compatible API"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "Anonymous Research Team" }]
+authors = [{ name = "Mira Contributors" }]
 dependencies = [
   "fastapi>=0.115.0",
   "uvicorn>=0.30.0",

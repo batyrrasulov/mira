@@ -1,48 +1,27 @@
 # Governance and Safety
 
-## Purpose
+## Intended Use
 
-This project is intended for learning support, concept clarification, and
-study guidance. It is not intended to bypass coursework requirements or
-assessment integrity.
+Mira is for concept mastery and study support.
+It is not intended for policy-violating exam assistance.
 
-## Core Principles
+## Data Handling
 
-1. Learning-first responses
-- Encourage reasoning steps and reflection.
-- Avoid answer-only behavior where possible.
+- Do not commit credentials or private datasets.
+- Keep logs focused on technical diagnostics, not sensitive personal content.
+- Use approved datasets for training and evaluation.
 
-2. Data minimization
-- Avoid storing raw student-identifiable data by default.
-- Use anonymized or synthetic data for public demonstrations.
+## Release Gates
 
-3. Contract reliability
-- Return strict JSON where configured so LMS behavior is predictable.
+A release should pass the following before deployment:
 
-4. Observability without over-collection
-- Track technical quality signals (latency, pass rate), not sensitive
-  personal content by default.
+1. API contract and tests pass.
+2. Quality suite meets agreed thresholds.
+3. Readiness checks succeed in target environment.
+4. Configuration review confirms no hardcoded secrets.
 
-## Recommended Institutional Controls
+## Operational Responsibilities
 
-- Formal policy review for acceptable use in coursework
-- Course-level opt-in and instructor visibility
-- Human escalation path for harmful or ambiguous outputs
-- Periodic model and prompt audits
-
-## Public Repository Boundaries
-
-- No production credentials
-- No proprietary business data
-- No institution-specific confidential datasets
-- No personal identifiers in release narratives
-
-## Evaluation Policy
-
-Each release candidate should be evaluated on:
-
-- API contract pass rate
-- Response usefulness against curated prompts
-- Failure/empty response rate
-- Latency SLO compliance
-- Regression against prior approved version
+- Define ownership for model/config changes.
+- Keep rollback steps documented and tested.
+- Track regressions with repeatable eval runs.

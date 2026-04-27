@@ -25,3 +25,17 @@ def test_guardrails_accept_valid_chat_payload() -> None:
     )
     assert ok
     assert errors == []
+
+
+def test_guardrails_accept_max_completion_tokens() -> None:
+    ok, errors = validate_payload(
+        payload={
+            "model": "mira-edu-assistant",
+            "messages": [{"role": "user", "content": "Explain linear regression."}],
+            "max_completion_tokens": 64,
+        },
+        endpoint="chat",
+        config=GuardrailConfig(max_input_chars=16000, max_output_tokens=512, min_output_tokens=1),
+    )
+    assert ok
+    assert errors == []
