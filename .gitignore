@@ -11,6 +11,7 @@ venv/
 .env.*
 !.env.example
 configs/app.env
+configs/stack.env
 
 # Generated artifacts
 training/outputs/*
