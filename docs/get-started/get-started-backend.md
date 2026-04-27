@@ -30,9 +30,15 @@ scripts/start_backend_stack.sh
 
 This brings up:
 
-- vLLM model server on port `8000`
-- Canary proxy on port `8003`
-- Mira API on port `8080`
+- NVIDIA host: vLLM (`8000`), canary proxy (`8003`), Mira API (`8080`)
+- Non-NVIDIA host: Mira API only (`8080`) in forced fallback mode
+
+Force startup mode explicitly:
+
+```bash
+MIRA_START_MODE=gpu scripts/start_backend_stack.sh
+MIRA_START_MODE=fallback scripts/start_backend_stack.sh
+```
 
 ## 4) Verify endpoints
 

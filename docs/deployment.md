@@ -72,3 +72,13 @@ scripts/rollback_canary.sh
 ```bash
 scripts/stop_backend_stack.sh
 ```
+
+## Non-NVIDIA Hosts
+
+If Docker does not provide an `nvidia` runtime, use fallback mode:
+
+```bash
+MIRA_START_MODE=fallback scripts/start_backend_stack.sh
+```
+
+Fallback mode runs Mira API only and enforces `MIRA_FORCE_FALLBACK=true` at startup.

@@ -113,6 +113,18 @@ cp configs/stack.env.example configs/stack.env
 scripts/start_backend_stack.sh
 ```
 
+`scripts/start_backend_stack.sh` is host-aware:
+
+- On NVIDIA-enabled hosts, it starts full GPU mode (`vLLM + proxy + API`).
+- On non-NVIDIA hosts, it automatically starts fallback mode (`API only`).
+
+Optional explicit mode override:
+
+```bash
+MIRA_START_MODE=gpu scripts/start_backend_stack.sh
+MIRA_START_MODE=fallback scripts/start_backend_stack.sh
+```
+
 Guides:
 
 - [docs/get-started/get-started-backend.md](docs/get-started/get-started-backend.md)

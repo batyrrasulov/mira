@@ -68,3 +68,21 @@ def test_auth_required_when_api_key_set() -> None:
         assert authorized.status_code == 200
     finally:
         api_module.SETTINGS = original
+
+
+def test_ready_ok_when_forced_fallback_enabled() -> None:
+    original = api_module.SETTINGS
+    api_module.SETTINGS = replace(
+        original,
+        force_fallback=True,
+        llm_base_url="http://127.0.0.1:9",
+        llm_model="mock-model",
+    )
+    try:
+        resp = client.get("/ready")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["status"] == "ok"
+        assert body["reason"] == "forced_fallback"
+    finally:
+        api_module.SETTINGS = original

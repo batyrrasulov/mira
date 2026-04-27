@@ -13,6 +13,18 @@
 docker compose --env-file configs/stack.env -f deploy/compose/docker-compose.backend.yml logs -f vllm-main
 ```
 
+## Docker reports unknown runtime nvidia
+
+This host does not expose the NVIDIA container runtime.
+
+- Run fallback mode (API only):
+
+```bash
+MIRA_START_MODE=fallback scripts/start_backend_stack.sh
+```
+
+- On GPU hosts, verify `docker info` includes the `nvidia` runtime before using GPU mode.
+
 ## Canary proxy returns 502
 
 - Verify upstream URL in `configs/stack.env` maps to the active vLLM service.
