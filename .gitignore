@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+configs/app.env
+
+# Generated artifacts
+training/outputs/*
+!training/outputs/.gitkeep
+evaluation/results/*
+!evaluation/results/.gitkeep
+
+# Logs and OS files
+*.log
+.DS_Store

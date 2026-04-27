@@ -1,0 +1,5 @@
+{"id":"p1","prompt":"Explain gradient descent to a beginner with one practical example.","expected_keywords":["step","error","learning rate"]}
+{"id":"p2","prompt":"How can I check if my SQL query result is reliable?","expected_keywords":["validate","assumption","test"]}
+{"id":"p3","prompt":"Give me a study plan to understand binary search trees in 7 days.","expected_keywords":["practice","concept","review"]}
+{"id":"p4","prompt":"What is overfitting and how do I prevent it?","expected_keywords":["generalization","validation","regularization"]}
+{"id":"p5","prompt":"Help me reason through Bayes theorem with a simple scenario.","expected_keywords":["prior","probability","evidence"]}
