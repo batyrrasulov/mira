@@ -47,9 +47,10 @@ def _env_float(name: str, default: float) -> float:
 
 
 def load_settings() -> Settings:
-    env_path = Path("configs/app.env")
-    if env_path.exists():
-        load_dotenv(env_path)
+    env_candidates = [Path("configs/stack.env"), Path("configs/app.env")]
+    for env_path in env_candidates:
+        if env_path.exists():
+            load_dotenv(env_path, override=False)
 
     return Settings(
         host=os.getenv("MIRA_HOST", "0.0.0.0").strip() or "0.0.0.0",

@@ -1,131 +1,222 @@
-# Mira
+# Mira: Education LLM Infrastructure Blueprint
 
-Mira is a production-style learning assistant backend with an OpenAI-compatible API,
-provider-backed generation, guardrails, and a reproducible training/evaluation workflow.
+Mira is a backend-only reference stack for building and operating an education-focused LLM pipeline:
 
-## What Works Today
+- OpenAI-compatible API gateway
+- vLLM inference plane
+- Canary proxy for safe promotion
+- Hugging Face model and dataset ingestion
+- H100-oriented LoRA/QLoRA fine-tuning
+- Adapter merge/export and promotion gating
 
-- OpenAI-compatible endpoints:
-  - POST /v1/chat/completions
-  - POST /v1/completions
-- Strict response contract for LMS parsing
-- Optional inbound API key protection
-- Provider mode (real upstream LLM) with automatic safe fallback
-- Readiness and health endpoints
-- Structured baseline training + scoring pipeline
-- Quality suite for contract, keyword, and latency checks
+This repository intentionally excludes UI layers and focuses on infra + model lifecycle.
 
-## Quick Start
+## Table of Contents
 
-### 1) Install
+- [Overview](#overview)
+- [Key Features](#key-features)
+- [Software Components](#software-components)
+- [Technical Diagram](#technical-diagram)
+- [Minimum System Requirements](#minimum-system-requirements)
+- [Getting Started](#getting-started)
+- [Full Pipeline (Train to Serve)](#full-pipeline-train-to-serve)
+- [Canary Rollout and Rollback](#canary-rollout-and-rollback)
+- [Repository Structure](#repository-structure)
+- [Security Considerations](#security-considerations)
+- [Documentation](#documentation)
+- [License](#license)
+
+## Overview
+
+Mira mirrors a production-style LLM stack where model lifecycle and backend reliability are first-class concerns.
+
+- Runtime endpoints:
+  - `POST /v1/chat/completions`
+  - `POST /v1/completions`
+- Operational endpoints:
+  - `GET /health`
+  - `GET /ready`
+- Provider compatibility:
+  - direct upstream OpenAI-compatible models
+  - self-hosted vLLM via canary proxy
+
+## Key Features
+
+- OpenAI-compatible contract with strict JSON normalization for downstream LMS systems
+- Guardrails on prompt size and token bounds
+- Deterministic canary routing and route introspection headers
+- LoRA/QLoRA adapter training and merge pipeline
+- Evaluation gate to block low-quality or high-latency promotions
+- Scripted rollout and rollback operations
+
+## Software Components
+
+| Component | Path | Role |
+| --- | --- | --- |
+| API service | `src/mira/api.py` | OpenAI-compatible endpoint layer |
+| Provider client | `src/mira/llm_client.py` | Upstream model invocation and fallback |
+| Guardrails | `src/mira/guardrails.py` | Payload policy enforcement |
+| Canary proxy | `scripts/llm_canary_proxy.py` | Base-versus-canary routing and control |
+| vLLM launcher | `scripts/run_vllm_server.py` | Environment-driven vLLM startup |
+| Compose deployment | `deploy/compose/docker-compose.backend.yml` | vLLM + proxy + API stack |
+| HF model pull | `scripts/pull_hf_model.py` | Local model snapshot sync |
+| Dataset prep | `training/scripts/prepare_hf_dataset.py` | HF dataset -> chat JSONL |
+| QLoRA trainer | `training/scripts/train_lora_adapter.py` | H100-oriented adapter training |
+| Adapter merge | `training/scripts/merge_lora_adapter.py` | Adapter + base merge for serving |
+| Promotion gate | `evaluation/run_adapter_gate.py` | Base/canary quality and latency gate |
+
+## Technical Diagram
+
+```mermaid
+flowchart LR
+    A[HF Model Hub] --> B[pull_hf_model.py]
+    C[HF Dataset] --> D[prepare_hf_dataset.py]
+    B --> E[train_lora_adapter.py]
+    D --> E
+    E --> F[merge_lora_adapter.py]
+    F --> G[vLLM main :8000]
+    G --> H[canary proxy :8003]
+    H --> I[Mira API :8080]
+    I --> J[LMS clients]
+    K[run_adapter_gate.py] --> H
+    K --> L[rollout_canary.sh / rollback_canary.sh]
+```
+
+Full architecture notes: [docs/reference/technical_diagram.md](docs/reference/technical_diagram.md).
+
+## Minimum System Requirements
+
+| Profile | GPU | CPU | RAM | Disk |
+| --- | --- | --- | --- | --- |
+| API + proxy only | Optional | 8 vCPU | 16 GB | 50 GB |
+| Local vLLM 7B serving | 1x H100 80GB (or equivalent) | 16 vCPU | 64 GB | 250 GB |
+| Train + serve pipeline | 4-8x H100 80GB | 64 vCPU | 256 GB | 1 TB |
+
+See [docs/reference/system-requirements.md](docs/reference/system-requirements.md) for details.
+
+## Getting Started
+
+### Option A: API-only local runtime
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-```
-
-### 2) Configure
-
-```bash
 cp configs/app.env.example configs/app.env
-```
-
-### 3) Run API
-
-```bash
 bash scripts/run_local_api.sh
 ```
 
-### 4) Verify
+### Option B: Full backend stack (vLLM + proxy + API)
 
 ```bash
-curl -sS http://127.0.0.1:8080/health
-curl -sS http://127.0.0.1:8080/ready
+cp configs/stack.env.example configs/stack.env
+scripts/start_backend_stack.sh
 ```
 
-## Run With A Real Upstream Model
+Guides:
 
-Set these values in configs/app.env:
+- [docs/get-started/get-started-backend.md](docs/get-started/get-started-backend.md)
+- [docs/get-started/get-started-h100-training.md](docs/get-started/get-started-h100-training.md)
 
-- MIRA_LLM_BASE_URL
-- MIRA_LLM_MODEL
-- MIRA_LLM_API_KEY (if required by provider)
+## Full Pipeline (Train to Serve)
 
-Optional:
-
-- MIRA_UPSTREAM_CHAT_ENDPOINT (default: /v1/chat/completions)
-- MIRA_PROVIDER_TEMPERATURE
-- MIRA_FORCE_FALLBACK
-
-Example request:
+### 1) Pull base model from Hugging Face
 
 ```bash
-curl -sS http://127.0.0.1:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "mira-edu-assistant",
-    "messages": [{"role": "user", "content": "Explain Bayes rule with an example."}],
-    "max_tokens": 220,
-    "temperature": 0
-  }'
+python scripts/pull_hf_model.py \
+  --repo-id Qwen/Qwen2.5-7B-Instruct \
+  --local-dir models/base/qwen2.5-7b-instruct
 ```
 
-If MIRA_API_KEY is set, include:
+### 2) Prepare training/eval data
 
 ```bash
--H "Authorization: Bearer <your-key>"
+python training/scripts/prepare_hf_dataset.py \
+  --dataset-id TIGER-Lab/MathInstruct \
+  --split train \
+  --max-samples 20000 \
+  --train-output training/data/edu_train.jsonl \
+  --eval-output training/data/edu_eval.jsonl
 ```
 
-## End-to-End Workflow
-
-### Train structured baseline
+### 3) Train LoRA/QLoRA adapter
 
 ```bash
-python training/scripts/build_dataset.py \
-  --input-csv training/data/sample_outcomes.csv \
-  --output-jsonl training/outputs/sft_bootstrap.jsonl \
-  --report-json training/outputs/sft_build_report.json
-
-python training/scripts/train_structured_model.py \
-  --input-csv training/data/sample_outcomes.csv \
-  --output-model training/outputs/structured_model.joblib \
-  --output-scored-csv training/outputs/structured_holdout_scored.csv \
-  --output-report training/outputs/structured_training_report.json
-
-python training/scripts/score_outcomes.py \
-  --input-csv training/outputs/structured_holdout_scored.csv \
-  --score-col ModelScore \
-  --output-json training/outputs/outcome_metrics.json
+python training/scripts/train_lora_adapter.py \
+  --config-yaml training/configs/qlora_h100.yaml
 ```
 
-### Run API quality checks
+### 4) Merge adapter for serving
 
 ```bash
-python evaluation/run_quality_suite.py \
-  --base-url http://127.0.0.1:8080 \
-  --prompts-file evaluation/prompts/sample_prompts.jsonl \
-  --output-json evaluation/results/quality_suite_report.json
+python training/scripts/merge_lora_adapter.py \
+  --base-model-id Qwen/Qwen2.5-7B-Instruct \
+  --adapter-path training/outputs/qwen25_edu_qlora_adapter \
+  --output-dir models/merged/qwen25_edu_merged
 ```
 
-## Repository Map
-
-- Core API: [src/mira/api.py](src/mira/api.py)
-- Provider client: [src/mira/llm_client.py](src/mira/llm_client.py)
-- Contract normalization: [src/mira/contract.py](src/mira/contract.py)
-- Guardrails: [src/mira/guardrails.py](src/mira/guardrails.py)
-- Settings: [src/mira/settings.py](src/mira/settings.py)
-- Training scripts: [training/scripts](training/scripts)
-- Evaluation suite: [evaluation/run_quality_suite.py](evaluation/run_quality_suite.py)
-- Deployment notes: [docs/deployment.md](docs/deployment.md)
-- Architecture notes: [docs/architecture.md](docs/architecture.md)
-
-## Commands
+### 5) Run promotion gate
 
 ```bash
-pytest -q
-python -m py_compile src/mira/*.py training/scripts/*.py evaluation/*.py
+python evaluation/run_adapter_gate.py \
+  --base-url http://127.0.0.1:8003 \
+  --base-model qwen2.5-7b-instruct \
+  --canary-model qwen2.5-7b-instruct-edu-lora \
+  --prompts-file evaluation/prompts/sample_prompts.jsonl
 ```
+
+### One-command pipeline
+
+```bash
+training/scripts/run_full_pipeline.sh
+```
+
+Set `RUN_SERVING_GATE=true` to include stack boot and promotion check in the same execution.
+
+## Canary Rollout and Rollback
+
+```bash
+scripts/rollout_canary.sh --percent 25
+scripts/rollback_canary.sh
+```
+
+## Repository Structure
+
+```text
+.
+├── deploy/
+│   ├── compose/
+│   └── docker/
+├── docs/
+│   ├── get-started/
+│   └── reference/
+├── evaluation/
+├── scripts/
+├── src/mira/
+└── training/
+    ├── configs/
+    ├── data/
+    ├── outputs/
+    └── scripts/
+```
+
+## Security Considerations
+
+- Use `MIRA_API_KEY` for gateway protection.
+- Keep tokens and credentials out of git.
+- Treat prompts/completions in logs as sensitive data.
+- Restrict service ports to private networks.
+
+See [SECURITY.md](SECURITY.md) for policy guidance.
+
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md)
+- [docs/deployment.md](docs/deployment.md)
+- [docs/governance.md](docs/governance.md)
+- [docs/reference/technical_diagram.md](docs/reference/technical_diagram.md)
+- [docs/reference/system-requirements.md](docs/reference/system-requirements.md)
+- [docs/troubleshooting.md](docs/troubleshooting.md)
 
 ## License
 

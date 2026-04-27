@@ -1,50 +1,55 @@
 # Architecture
 
-## Runtime Architecture
+Mira is organized as a model-lifecycle backend system with separate planes for serving, gating, and training.
 
-Mira exposes an OpenAI-compatible API and can run in two modes:
+## Control Plane
 
-1. Provider mode
+- `deploy/compose/docker-compose.backend.yml` defines runtime topology.
+- `scripts/start_backend_stack.sh` and `scripts/stop_backend_stack.sh` provide stack lifecycle control.
+- `scripts/rollout_canary.sh` and `scripts/rollback_canary.sh` control traffic promotion.
 
-- Requests are forwarded to an upstream OpenAI-compatible model endpoint.
-- Output is normalized into a strict LMS-safe JSON contract.
+## Runtime Plane
 
-1. Fallback mode
+### 1) Mira API (`src/mira/api.py`)
 
-- Used when provider configuration is missing, disabled, or upstream fails.
-- Returns deterministic structured guidance so downstream integrations do not break.
+- Exposes OpenAI-compatible endpoints (`/v1/chat/completions`, `/v1/completions`).
+- Applies auth checks, schema validation, and guardrails.
+- Normalizes generated output into a stable educational JSON contract.
 
-## Components
+### 2) Canary Proxy (`scripts/llm_canary_proxy.py`)
 
-- API service: src/mira/api.py
-- Request schemas: src/mira/schema.py
-- Guardrails: src/mira/guardrails.py
-- Provider client: src/mira/llm_client.py
-- Contract normalization: src/mira/contract.py
-- Environment config: src/mira/settings.py
+- Routes each request to base or canary model.
+- Uses deterministic hashing for reproducible traffic split.
+- Exposes route metadata headers for observability.
 
-## Request Path
+### 3) vLLM Inference (`scripts/run_vllm_server.py`)
 
-1. Client sends POST /v1/chat/completions or POST /v1/completions.
-2. Guardrails validate token limits and input size.
-3. Optional API-key auth is enforced if configured.
-4. Runtime generates content from provider or fallback.
-5. Output is normalized to the required JSON schema.
-6. Response is returned using OpenAI-compatible response shape.
+- Serves base and merged model weights through OpenAI-compatible APIs.
+- Uses environment-driven performance and memory controls.
 
-## Operational Endpoints
+## Training Plane
 
-- GET /health: static service metadata and current configuration summary.
-- GET /ready: readiness check, including provider reachability when provider mode is configured.
+### Dataset and Adaptation
 
-## Contract Guarantees
+- `training/scripts/prepare_hf_dataset.py`: converts HF dataset records to chat training JSONL.
+- `training/scripts/train_lora_adapter.py`: runs LoRA/QLoRA fine-tuning.
+- `training/scripts/merge_lora_adapter.py`: merges adapter into full model weights.
 
-The response payload always includes:
+### Evaluation and Promotion
 
-- learning_goal
-- explanation
-- guided_steps
-- check_for_understanding
-- policy_note
+- `evaluation/run_adapter_gate.py` compares base vs canary quality/latency.
+- Promotion gates block rollout on quality regression or latency spikes.
 
-This contract is designed for stable LMS-side rendering.
+## Request Lifecycle
+
+1. Client calls Mira API.
+2. Guardrails and auth checks execute.
+3. API calls configured upstream endpoint (proxy or provider).
+4. Canary proxy chooses base or canary model.
+5. vLLM generates completion.
+6. API normalizes response to LMS-safe contract.
+7. Client receives OpenAI-compatible response payload.
+
+## Diagram
+
+See [docs/reference/technical_diagram.md](docs/reference/technical_diagram.md) for a full flow diagram.

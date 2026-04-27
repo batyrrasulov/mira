@@ -28,6 +28,7 @@ jobs:
           python -m py_compile src/mira/*.py
           python -m py_compile training/scripts/*.py
           python -m py_compile evaluation/*.py
+          python -m py_compile scripts/*.py
 
       - name: Run tests
         run: pytest -q

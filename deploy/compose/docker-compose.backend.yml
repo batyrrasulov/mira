@@ -1,0 +1,85 @@
+services:
+  vllm-main:
+    image: ${VLLM_IMAGE:-vllm/vllm-openai:latest}
+    container_name: vllm-main
+    restart: unless-stopped
+    runtime: nvidia
+    gpus: all
+    shm_size: "16g"
+    working_dir: /workspace
+    env_file:
+      - ../../configs/stack.env
+    environment:
+      VLLM_HOST: 0.0.0.0
+      VLLM_PORT: 8000
+      BASE_MODEL_ID: ${BASE_MODEL_ID}
+      BASE_MODEL_NAME: ${BASE_MODEL_NAME}
+      VLLM_DTYPE: ${VLLM_DTYPE}
+      VLLM_MAX_MODEL_LEN: ${VLLM_MAX_MODEL_LEN}
+      VLLM_GPU_MEMORY_UTILIZATION: ${VLLM_GPU_MEMORY_UTILIZATION}
+      VLLM_MAX_NUM_SEQS: ${VLLM_MAX_NUM_SEQS}
+      VLLM_MAX_NUM_BATCHED_TOKENS: ${VLLM_MAX_NUM_BATCHED_TOKENS}
+      VLLM_API_KEY: ${VLLM_API_KEY}
+      VLLM_EXTRA_ARGS: ${VLLM_EXTRA_ARGS}
+      HF_HOME: ${HF_HOME}
+      HUGGINGFACE_HUB_CACHE: ${HUGGINGFACE_HUB_CACHE}
+    volumes:
+      - ../../:/workspace
+      - ../../models:${MODEL_MOUNT_PATH}
+    command: ["python", "/workspace/scripts/run_vllm_server.py"]
+    ports:
+      - "${VLLM_BIND_ADDRESS}:${VLLM_PUBLIC_PORT}:8000"
+
+  llm-canary-proxy:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.proxy
+    container_name: llm-canary-proxy
+    restart: unless-stopped
+    env_file:
+      - ../../configs/stack.env
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      LISTEN_PORT: 8003
+      UPSTREAM_BASE_URL: http://vllm-main:8000
+      BASE_MODEL_NAME: ${BASE_MODEL_NAME}
+      CANARY_MODEL_NAME: ${CANARY_MODEL_NAME}
+      CANARY_PERCENT: ${CANARY_PERCENT}
+      CANARY_HASH_HEADER: ${CANARY_HASH_HEADER}
+      PROXY_TIMEOUT_S: ${PROXY_TIMEOUT_S}
+      ENABLE_GUARDRAILS: ${ENABLE_GUARDRAILS}
+      LLM_MAX_INPUT_CHARS: ${MIRA_MAX_INPUT_CHARS}
+      LLM_MAX_OUTPUT_TOKENS: ${MIRA_MAX_OUTPUT_TOKENS}
+      LLM_MIN_OUTPUT_TOKENS: ${MIRA_MIN_OUTPUT_TOKENS}
+    depends_on:
+      - vllm-main
+    ports:
+      - "${CANARY_PROXY_BIND_ADDRESS}:${CANARY_PROXY_PUBLIC_PORT}:8003"
+
+  mira-api:
+    build:
+      context: ../../
+      dockerfile: deploy/docker/Dockerfile.api
+    container_name: mira-api
+    restart: unless-stopped
+    env_file:
+      - ../../configs/stack.env
+    environment:
+      MIRA_HOST: 0.0.0.0
+      MIRA_PORT: 8080
+      MIRA_REQUEST_TIMEOUT_S: ${MIRA_REQUEST_TIMEOUT_S}
+      MIRA_API_KEY: ${MIRA_API_KEY}
+      MIRA_MAX_INPUT_CHARS: ${MIRA_MAX_INPUT_CHARS}
+      MIRA_MAX_OUTPUT_TOKENS: ${MIRA_MAX_OUTPUT_TOKENS}
+      MIRA_MIN_OUTPUT_TOKENS: ${MIRA_MIN_OUTPUT_TOKENS}
+      MIRA_LLM_BASE_URL: http://llm-canary-proxy:8003
+      MIRA_LLM_API_KEY: ${MIRA_LLM_API_KEY}
+      MIRA_LLM_MODEL: ${BASE_MODEL_NAME}
+      MIRA_UPSTREAM_CHAT_ENDPOINT: ${MIRA_UPSTREAM_CHAT_ENDPOINT}
+      MIRA_PROVIDER_TEMPERATURE: ${MIRA_PROVIDER_TEMPERATURE}
+      MIRA_FORCE_FALLBACK: ${MIRA_FORCE_FALLBACK}
+      MIRA_STRICT_JSON_MODE: ${MIRA_STRICT_JSON_MODE}
+    depends_on:
+      - llm-canary-proxy
+    ports:
+      - "${MIRA_API_BIND_ADDRESS}:${MIRA_API_PORT}:8080"

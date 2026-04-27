@@ -1,0 +1,5 @@
+# Optional packages for Linux GPU training/serving environments.
+# Install after requirements.txt on H100 hosts.
+
+bitsandbytes>=0.43.0; platform_system == "Linux"
+flash-attn>=2.6.3; platform_system == "Linux"

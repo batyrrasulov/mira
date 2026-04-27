@@ -1,0 +1,48 @@
+model:
+  base_model_id: Qwen/Qwen2.5-7B-Instruct
+  tokenizer_id: Qwen/Qwen2.5-7B-Instruct
+  trust_remote_code: false
+
+data:
+  train_file: training/data/edu_train.jsonl
+  eval_file: training/data/edu_eval.jsonl
+
+trainer:
+  output_dir: training/outputs/qwen25_edu_qlora_adapter
+  report_file: training/outputs/qwen25_edu_qlora_adapter_report.json
+  seed: 42
+  max_seq_length: 4096
+  epochs: 2
+  learning_rate: 0.00012
+  weight_decay: 0.01
+  warmup_ratio: 0.03
+  lr_scheduler_type: cosine
+  logging_steps: 10
+  save_steps: 100
+  eval_steps: 100
+  per_device_train_batch_size: 2
+  per_device_eval_batch_size: 2
+  gradient_accumulation_steps: 16
+  gradient_checkpointing: true
+  max_grad_norm: 0.3
+  bf16: true
+
+lora:
+  r: 64
+  alpha: 128
+  dropout: 0.05
+  bias: none
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
+  bnb_4bit_use_double_quant: true

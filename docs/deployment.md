@@ -1,6 +1,10 @@
 # Deployment
 
-## Local Run
+## Deployment Options
+
+### Option A: API-only mode
+
+Use this mode when you already have a hosted OpenAI-compatible model endpoint.
 
 ```bash
 python -m venv .venv
@@ -10,39 +14,61 @@ cp configs/app.env.example configs/app.env
 bash scripts/run_local_api.sh
 ```
 
-## Minimum Environment
+### Option B: Full backend stack (recommended)
 
-- MIRA_HOST
-- MIRA_PORT
-- MIRA_MAX_INPUT_CHARS
-- MIRA_MAX_OUTPUT_TOKENS
-- MIRA_MIN_OUTPUT_TOKENS
+Includes:
 
-## Provider Mode Configuration
+- vLLM model server
+- Canary proxy
+- Mira API
 
-Set these in configs/app.env:
+```bash
+cp configs/stack.env.example configs/stack.env
+scripts/start_backend_stack.sh
+```
 
-- MIRA_LLM_BASE_URL
-- MIRA_LLM_MODEL
-- MIRA_LLM_API_KEY (if needed)
+Compose file: `deploy/compose/docker-compose.backend.yml`
 
-Optional:
+## Required Environment Values
 
-- MIRA_UPSTREAM_CHAT_ENDPOINT
-- MIRA_PROVIDER_TEMPERATURE
-- MIRA_FORCE_FALLBACK
+In `configs/stack.env`:
 
-## Security Controls
+- `BASE_MODEL_ID`
+- `BASE_MODEL_NAME`
+- `CANARY_MODEL_NAME`
+- `CANARY_PERCENT`
+- `MIRA_API_KEY` (recommended)
 
-- Set MIRA_API_KEY to require Bearer auth on write endpoints.
-- Keep provider keys out of git and local shell history where possible.
-- Restrict network access to trusted clients only.
-
-## Health and Readiness
+## Health and Readiness Checks
 
 ```bash
 curl -sS http://127.0.0.1:8080/health
 curl -sS http://127.0.0.1:8080/ready
+curl -sS http://127.0.0.1:8003/health
 ```
 
-Use readiness in orchestration checks before promoting traffic.
+Readiness gate script:
+
+```bash
+python scripts/check_llm_readiness.py --base-url http://127.0.0.1:8000 --model qwen2.5-7b-instruct
+```
+
+## Promotion Operations
+
+### Roll out canary traffic
+
+```bash
+scripts/rollout_canary.sh --percent 25
+```
+
+### Roll back to base model
+
+```bash
+scripts/rollback_canary.sh
+```
+
+### Stop runtime stack
+
+```bash
+scripts/stop_backend_stack.sh
+```
