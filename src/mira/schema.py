@@ -9,7 +9,7 @@ Role = Literal["system", "user", "assistant"]
 
 class ChatMessage(BaseModel):
     role: Role
-    content: str = Field(min_length=1, max_length=16000)
+    content: str = Field(min_length=1)
 
 
 class ChatCompletionRequest(BaseModel):
@@ -43,7 +43,7 @@ class ChatCompletionRequest(BaseModel):
 
 class CompletionRequest(BaseModel):
     model: str = Field(default="mira-edu-assistant")
-    prompt: str = Field(min_length=1, max_length=16000)
+    prompt: str = Field(min_length=1)
     max_tokens: int | None = Field(default=None, ge=1, le=4096)
     max_completion_tokens: int | None = Field(default=None, ge=1, le=4096)
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)

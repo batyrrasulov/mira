@@ -54,3 +54,5 @@ training/scripts/run_full_pipeline.sh
 ```
 
 Set `RUN_SERVING_GATE=true` to include serving and gate checks in the same run.
+
+When serving is requested from a host that starts in fallback mode (API only, no canary proxy), the gate step is skipped and reported explicitly.

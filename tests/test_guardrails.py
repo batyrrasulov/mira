@@ -39,3 +39,17 @@ def test_guardrails_accept_max_completion_tokens() -> None:
     )
     assert ok
     assert errors == []
+
+
+def test_guardrails_reject_input_above_configured_limit() -> None:
+    ok, errors = validate_payload(
+        payload={
+            "model": "mira-edu-assistant",
+            "messages": [{"role": "user", "content": "x" * 17000}],
+            "max_tokens": 64,
+        },
+        endpoint="chat",
+        config=GuardrailConfig(max_input_chars=16000, max_output_tokens=512, min_output_tokens=1),
+    )
+    assert not ok
+    assert any("input chars" in err for err in errors)

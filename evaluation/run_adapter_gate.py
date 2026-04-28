@@ -55,7 +55,7 @@ def request_completion(
     max_tokens: int,
     timeout_s: float,
     route: str,
-) -> tuple[str, float, int]:
+) -> tuple[str, float, int, str]:
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
@@ -76,17 +76,28 @@ def request_completion(
     start = time.time()
     try:
         with urllib.request.urlopen(req, timeout=timeout_s) as resp:
-            body = json.loads(resp.read().decode("utf-8"))
             latency_s = time.time() - start
+            raw_body = resp.read().decode("utf-8", errors="replace")
+            try:
+                body = json.loads(raw_body)
+            except json.JSONDecodeError:
+                return raw_body[:220], latency_s, int(resp.status), "invalid_json_response"
             content = (
                 body.get("choices", [{}])[0]
                 .get("message", {})
                 .get("content", "")
             )
-            return str(content), latency_s, int(resp.status)
+            return str(content), latency_s, int(resp.status), ""
     except urllib.error.HTTPError as exc:
         latency_s = time.time() - start
-        return f"HTTP {exc.code}", latency_s, int(exc.code)
+        detail = exc.read().decode("utf-8", errors="replace")[:220]
+        return f"HTTP {exc.code}", latency_s, int(exc.code), detail
+    except urllib.error.URLError as exc:
+        latency_s = time.time() - start
+        return "NETWORK_ERROR", latency_s, 0, f"network_error: {exc.reason}"
+    except Exception as exc:  # noqa: BLE001
+        latency_s = time.time() - start
+        return "REQUEST_ERROR", latency_s, 0, f"request_error: {type(exc).__name__}: {exc}"
 
 
 def score_model(
@@ -108,7 +119,7 @@ def score_model(
         if not isinstance(keywords, list):
             keywords = []
 
-        answer, latency_s, status = request_completion(url, model, prompt, max_tokens, timeout_s, route)
+        answer, latency_s, status, error = request_completion(url, model, prompt, max_tokens, timeout_s, route)
         hit = keyword_hit_ratio(answer, [str(x) for x in keywords])
 
         latencies.append(latency_s)
@@ -122,6 +133,7 @@ def score_model(
                 "status": status,
                 "latency_s": latency_s,
                 "keyword_hit": hit,
+                "error": error,
             }
         )
 

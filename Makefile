@@ -10,7 +10,7 @@ run:
 	bash scripts/run_local_api.sh
 
 test:
-	pytest -q
+	$(PYTHON) -m pytest -q
 
 compile:
 	$(PYTHON) -m py_compile src/mira/*.py

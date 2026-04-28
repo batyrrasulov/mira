@@ -185,6 +185,11 @@ training/scripts/run_full_pipeline.sh
 
 Set `RUN_SERVING_GATE=true` to include stack boot and promotion check in the same execution.
 
+Notes:
+
+- The pipeline resolves `python`/`python3` automatically.
+- If the stack starts in API-only fallback mode (no canary proxy on `:8003`), the serving gate step is skipped with an explicit log message.
+
 ## Canary Rollout and Rollback
 
 ```bash

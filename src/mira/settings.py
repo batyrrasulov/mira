@@ -47,7 +47,8 @@ def _env_float(name: str, default: float) -> float:
 
 
 def load_settings() -> Settings:
-    env_candidates = [Path("configs/stack.env"), Path("configs/app.env")]
+    # app.env should win over stack.env when both are present for local API workflows.
+    env_candidates = [Path("configs/app.env"), Path("configs/stack.env")]
     for env_path in env_candidates:
         if env_path.exists():
             load_dotenv(env_path, override=False)
@@ -57,8 +58,8 @@ def load_settings() -> Settings:
         port=_env_int("MIRA_PORT", 8080),
         request_timeout_s=_env_float("MIRA_REQUEST_TIMEOUT_S", 20.0),
         api_key=os.getenv("MIRA_API_KEY", "").strip(),
-        max_input_chars=_env_int("MIRA_MAX_INPUT_CHARS", 16000),
-        max_output_tokens=_env_int("MIRA_MAX_OUTPUT_TOKENS", 512),
+        max_input_chars=_env_int("MIRA_MAX_INPUT_CHARS", 24000),
+        max_output_tokens=_env_int("MIRA_MAX_OUTPUT_TOKENS", 1024),
         min_output_tokens=_env_int("MIRA_MIN_OUTPUT_TOKENS", 1),
         llm_base_url=os.getenv("MIRA_LLM_BASE_URL", "").strip(),
         llm_api_key=os.getenv("MIRA_LLM_API_KEY", "").strip(),

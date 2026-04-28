@@ -6,8 +6,8 @@ from typing import Any
 
 @dataclass(frozen=True)
 class GuardrailConfig:
-    max_input_chars: int = 16000
-    max_output_tokens: int = 512
+    max_input_chars: int = 24000
+    max_output_tokens: int = 1024
     min_output_tokens: int = 1
 
 
